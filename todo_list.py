@@ -27,55 +27,96 @@ Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 session = Session()
 
-print("\n1) Today's tasks\n2) Week's tasks\n3) All tasks\n4) Add task\n0) Exit")
-cmd = input()
-while cmd != "0":
-    if cmd == "1":
-        # get all rows from the table.
-        # all() method returns all rows from the table as a Python list
-        rows = session.query(Table).all()
-        # first_row = rows[0]  # In case rows list is not empty
-        print(f"\nToday {today.day} {today.strftime('%b')}:")
-        if rows:
-            print("\n".join([(str(rows[i].id) + ". " + rows[i].task) for i in range(len(rows))]))
-            # print()
-        else:
-            print("Nothing to do!")
-    elif cmd == "2":
-        week = [(today + timedelta(days=i)).date() for i in range(7)]
-        days_week = [i.strftime('%A %d %B') for i in week]
-        for i in range(len(week)):
-            print(days_week[i])
-            rows = session.query(Table).filter(Table.deadline == str(week[i])).all()
-            if rows:
-                # print(*rows)
-                print("\n".join(((str(rows[i].id) + ". " + rows[i].task) for i in range(len(rows)))),
-                      end="\n\n")
-            else:
-                print("Nothing to do!\n")
-    elif cmd == "3":
-        print("\nAll tasks:")
-        rows = session.query(Table).order_by(Table.deadline).all()
-        if rows:
-            n = len(rows)
-            print("\n".join([f"{i+1}. {rows[i].task}. {rows[i].deadline.day} "
-                             f"{rows[i].deadline.strftime('%b')}" for i in range(n)]), end="\n\n")
-        else:
-            print("Nothing to do!")
 
-    elif cmd == "4":
-        print("\nEnter task")
-        todo_task = input()
-        print("Enter deadline")
-        task_deadline = input()
-        new_row = Table(task=todo_task,
-                        deadline=datetime.strptime(task_deadline, '%Y-%m-%d').date())
-        session.add(new_row)
-        session.commit()
-        print("The task has been added!")
+def today_tasks():
+    rows = session.query(Table).filter(Table.deadline == today.date()).all()
+    if rows:
+        return "\n".join([(str(i+1) + ". " + rows[i].task) for i in range(len(rows))])
+    return "Nothing to do!"
+
+
+def print_all_tasks(rows):
+    if rows:
+        n = len(rows)
+        print("\n".join([f"{i+1}. {rows[i].task}. {rows[i].deadline.day} "
+              f"{rows[i].deadline.strftime('%b')}" for i in range(n)]))
     else:
-        print("Wrong command")
-    print("1) Today's tasks\n2) Week's tasks\n3) All tasks\n4) Add task\n0) Exit")
-    cmd = input()
+        print("Nothing to do!")
 
-print("Bye!")
+
+def week_tasks():
+    week = [(today + timedelta(days=i)).date() for i in range(7)]
+    days_week = [i.strftime('%A %d %B') for i in week]
+    for i in range(len(week)):
+        print(days_week[i])
+        rows = session.query(Table).filter(Table.deadline == str(week[i])).all()
+        if rows:
+            print("\n".join(((str(rows[i].id) + ". " + rows[i].task) for i in range(len(rows)))), end="\n\n")
+        else:
+            print("Nothing to do!\n")
+
+
+def missed_tasks():
+    r = session.query(Table).filter(Table.deadline < today.date()).all()
+    n = len(r)
+    if r:
+        for i in range(n):
+            print(f"{i + 1}. {r[i].task}. {r[i].deadline.day} {r[i].deadline.strftime('%b')}")
+    else:
+        print("Nothing is missed!")
+
+
+def main():
+    print("\n1) Today's tasks\n2) Week's tasks\n3) All tasks\n\
+4) Missed tasks\n5) Add task\n6) Delete task\n0) Exit")
+    cmd = input()
+    while cmd != "0":
+        if cmd == "1":
+            print(f"\nToday {today.day} {today.strftime('%b')}:")
+            print(today_tasks())
+
+        elif cmd == "2":
+            week_tasks()
+
+
+        elif cmd == "3":
+            rows = session.query(Table).order_by(Table.deadline).all()
+            print("\nAll tasks:")
+            print_all_tasks(rows)
+
+        elif cmd == "4":
+            print("\nMissed tasks:")
+            missed_tasks()
+
+        elif cmd == "5":
+            print("\nEnter task")
+            todo_task = input()
+            print("Enter deadline")
+            task_deadline = input()
+            new_row = Table(task=todo_task,
+                            deadline=datetime.strptime(task_deadline, '%Y-%m-%d').date())
+            session.add(new_row)
+            session.commit()
+            print("The task has been added!")
+
+        elif cmd == "6":
+            rows = session.query(Table).order_by(Table.deadline).all()
+            if rows:
+                print("Choose the number of the task you want to delete:")
+                print_all_tasks(rows)
+                del_choice = int(input())
+                specific_row = rows[del_choice-1]  # in case rows is not empty
+                session.delete(specific_row)
+                session.commit()
+                print("Task has been deleted!")
+            else:
+                print("Nothing to delete")
+        else:
+            print("Wrong command")
+        print("\n1) Today's tasks\n2) Week's tasks\n3) All tasks\
+    \n4) Missed tasks\n5) Add task\n6) Delete task\n0) Exit")
+        cmd = input()
+
+
+main()
+print("\nBye!")
